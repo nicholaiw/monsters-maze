@@ -1,16 +1,14 @@
 import time
 
 from pynput import keyboard
-
-from entity import Character, Wall
 from controller import KeyboardController
+from map import Map
 
 
 class Game:
     def __init__(self):
         self.running = True
-        self.entities = []
-        self.player = Character(x=0, y=0, symbol="@", collision=False, view=5)
+        self.map = Map()
         self.playerController = KeyboardController(
             {
                 keyboard.Key.left: "left",
@@ -19,18 +17,16 @@ class Game:
                 keyboard.Key.down: "down",
             }
         )
-        self.entities.append(self.player)
-        self.entities.append(Wall(x=1, y=1, symbol="#", collision=True))
 
     def draw(self, entities, target):
         lines = ["\033[2J\033[H"]
 
+        
         for y in range(target.view):
             row = []
-
             for x in range(target.view):
-                offsetX = x + (target.x - target.view // 2)
-                offsetY = y + (target.y - target.view // 2)
+                offsetX = x + max(0, min(target.x - target.view // 2, self.map.size - target.view))
+                offsetY = y + max(0, min(target.y - target.view // 2, self.map.size - target.view))
 
                 symbol = "."
                 for entity in entities:
@@ -44,8 +40,10 @@ class Game:
 
     def run(self):
         while self.running:
-            self.player.move(self.playerController.getDirection(), self.entities)
-            self.draw(self.entities, self.player)
+            self.map.player.move(
+                self.playerController.getDirection(), self.map.entities
+            )
+            self.draw(self.map.entities, self.map.player)
             time.sleep(0.5)
 
 
