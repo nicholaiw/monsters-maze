@@ -19,7 +19,6 @@ class Character(Entity):
         newX = self.x + dx
         newY = self.y + dy
 
-
         for entity in entities:
             if entity.collision and entity.x == newX and entity.y == newY:
                 return

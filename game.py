@@ -21,12 +21,15 @@ class Game:
     def draw(self, entities, target):
         lines = ["\033[2J\033[H"]
 
-        
         for y in range(target.view):
             row = []
             for x in range(target.view):
-                offsetX = x + max(0, min(target.x - target.view // 2, self.map.size - target.view))
-                offsetY = y + max(0, min(target.y - target.view // 2, self.map.size - target.view))
+                offsetX = x + max(
+                    0, min(target.x - target.view // 2, self.map.size - target.view)
+                )
+                offsetY = y + max(
+                    0, min(target.y - target.view // 2, self.map.size - target.view)
+                )
 
                 symbol = "."
                 for entity in entities:
