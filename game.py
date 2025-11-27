@@ -1,14 +1,19 @@
 import time
-
 from pynput import keyboard
+from gameObject import Character, Item
 from controller import KeyboardController
-from map import Map
+from maze import Maze
+from canvas import Canvas
 
 
 class Game:
     def __init__(self):
         self.running = True
-        self.map = Map()
+        self.maze = Maze(15)
+        self.canvas = Canvas(15)
+        self.gameObjects = []
+
+        self.player = self.spawnGameObject(Character, "@")
         self.playerController = KeyboardController(
             {
                 keyboard.Key.left: "left",
@@ -18,36 +23,24 @@ class Game:
             }
         )
 
-    def draw(self, entities, target):
-        lines = ["\033[2J\033[H"]
-
-        for y in range(target.view):
-            row = []
-            for x in range(target.view):
-                offsetX = x + max(
-                    0, min(target.x - target.view // 2, self.map.size - target.view)
-                )
-                offsetY = y + max(
-                    0, min(target.y - target.view // 2, self.map.size - target.view)
-                )
-
-                symbol = "."
-                for entity in entities:
-                    if entity.x == offsetX and entity.y == offsetY:
-                        symbol = entity.symbol
-                        break
-
-                row.append(f" {symbol} ")
-            lines.append("".join(row))
-        print("\n".join(lines))
+    def spawnGameObject(self, objClass, symbol, **kwargs):
+        x, y = self.maze.getEmptyTile()
+        obj = objClass(x, y, symbol=symbol, **kwargs)
+        self.gameObjects.append(obj)
+        return obj
 
     def run(self):
         while self.running:
-            self.map.player.move(
-                self.playerController.getDirection(), self.map.entities
-            )
-            self.draw(self.map.entities, self.map.player)
+            self.update()
+            self.draw()
             time.sleep(0.5)
+
+    def update(self):
+        self.player.move(self.playerController.getDirection(), self.maze.grid)
+
+    def draw(self):
+        self.canvas.clear()
+        self.canvas.draw(self.maze, self.gameObjects, self.player)
 
 
 game = Game()
