@@ -1,7 +1,7 @@
 import time
 from pynput import keyboard
-from gameObject import Character, Item
-from controller import KeyboardController
+from gameObject import Character
+from controller import KeyboardController, AiController
 from maze import Maze
 from canvas import Canvas
 
@@ -13,7 +13,7 @@ class Game:
         self.canvas = Canvas(15)
         self.gameObjects = []
 
-        self.player = self.spawnGameObject(Character, "@")
+        self.player = self.spawnGameObject(Character, "@", role="human")
         self.playerController = KeyboardController(
             {
                 keyboard.Key.left: "left",
@@ -21,6 +21,11 @@ class Game:
                 keyboard.Key.up: "up",
                 keyboard.Key.down: "down",
             }
+        )
+
+        self.monster = self.spawnGameObject(Character, "&", role="monster")
+        self.monsterController = AiController(
+            self.monster, 100, self.maze, self.gameObjects
         )
 
     def spawnGameObject(self, objClass, symbol, **kwargs):
@@ -33,9 +38,10 @@ class Game:
         while self.running:
             self.update()
             self.draw()
-            time.sleep(0.5)
+            time.sleep(0.3)
 
     def update(self):
+        self.monster.move(self.monsterController.getDirection(), self.maze.grid)
         self.player.move(self.playerController.getDirection(), self.maze.grid)
 
     def draw(self):

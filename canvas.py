@@ -3,7 +3,7 @@ class Canvas:
         self.size = size
 
     def clear(self):
-        print("\033[2J\033[H")
+        print("\033[2J\033[H", end="")
 
     def draw(self, maze, gameObjects, target):
         lines = []
