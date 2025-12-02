@@ -24,9 +24,11 @@ class Game:
         x, y = self.maze.getEmptyTile()
         obj = objectClass(x, y, symbol=symbol, **kwargs)
         self.gameObjects.append(obj)
-        return obj
 
     def start(self):
+
+        self.spawnGameObject(GameObject, Symbols.DOOR)
+
         self.spawnGameObject(
             Character,
             Symbols.HUMAN,
@@ -43,34 +45,6 @@ class Game:
 
         self.spawnGameObject(
             Character,
-            Symbols.HUMAN,
-            role="human",
-            controller=KeyboardController(
-                {
-                    keyboard.KeyCode.from_char("a"): (-1, 0),
-                    keyboard.KeyCode.from_char("d"): (1, 0),
-                    keyboard.KeyCode.from_char("w"): (0, -1),
-                    keyboard.KeyCode.from_char("s"): (0, 1),
-                }
-            ),
-        )
-
-        self.spawnGameObject(
-            Character,
-            Symbols.MONSTER,
-            role="monster",
-            controller=KeyboardController(
-                {
-                    keyboard.KeyCode.from_char("j"): (-1, 0),
-                    keyboard.KeyCode.from_char("l"): (1, 0),
-                    keyboard.KeyCode.from_char("i"): (0, -1),
-                    keyboard.KeyCode.from_char("k"): (0, 1),
-                }
-            ),
-        )
-
-        self.spawnGameObject(
-            Character,
             Symbols.MONSTER,
             role="monster",
             controller=AiController(GameConfig.MONSTER_VIEW_RANGE),
@@ -80,6 +54,7 @@ class Game:
         try:
             self.start()
             while self.running:
+                self._checkGameOver()
                 self.update()
                 self.draw()
                 time.sleep(self.tickRate)
@@ -87,12 +62,52 @@ class Game:
             self.cleanup()
 
     def update(self):
-        for obj in self.gameObjects:
+
+        for obj in self.gameObjects[:]:
             obj.update(self)
+
+        self._checkKilled()
+        self._checkEscape()
+
+    def _checkKilled(self):
+        monsters = [
+            obj for obj in self.gameObjects if getattr(obj, "role", None) == "monster"
+        ]
+        humans = [
+            obj for obj in self.gameObjects if getattr(obj, "role", None) == "human"
+        ]
+
+        for monster in monsters:
+            for human in humans[:]:
+                if monster.x == human.x and monster.y == human.y:
+                    self.gameObjects.remove(human)
+
+    def _checkEscape(self):
+        door = next(
+            (obj for obj in self.gameObjects if obj.symbol == Symbols.DOOR), None
+        )
+
+        if not door:
+            return
+
+        humans = [
+            obj for obj in self.gameObjects if getattr(obj, "role", None) == "human"
+        ]
+
+        for human in humans[:]:
+            if human.x == door.x and human.y == door.y:
+                self.gameObjects.remove(human)
+
+    def _checkGameOver(self):
+        humans = [
+            obj for obj in self.gameObjects if getattr(obj, "role", None) == "human"
+        ]
+
+        if len(humans) == 0:
+            self.running = False
 
     def draw(self):
         self.canvas.clear()
-
         players = [
             obj
             for obj in self.gameObjects

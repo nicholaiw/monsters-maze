@@ -3,6 +3,7 @@ class Symbols:
     FLOOR = "."
     HUMAN = "@"
     MONSTER = "&"
+    DOOR = "+"
 
 
 class TileType:
@@ -12,6 +13,6 @@ class TileType:
 
 class GameConfig:
     MAZE_SIZE = 15
-    VIEWPORT_SIZE = 5
+    VIEWPORT_SIZE = 15
     TICK_RATE = 0.25
     MONSTER_VIEW_RANGE = 3
