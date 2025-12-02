@@ -1,111 +1,145 @@
 import random
 from collections import deque
 from pynput import keyboard
+from constant import TileType
 
 
-class KeyboardController:
+class ControllerManager:
+    def __init__(self):
+        self.controllers = []
+        self.listener = None
+
+    def register(self, controller):
+        self.controllers.append(controller)
+        if self.listener is None:
+            self.listener = keyboard.Listener(on_press=self._onPress)
+            self.listener.start()
+
+    def _onPress(self, key):
+        for controller in self.controllers:
+            if hasattr(controller, "onPress"):
+                controller.onPress(key)
+
+    def cleanup(self):
+        if self.listener:
+            self.listener.stop()
+            self.listener = None
+
+
+_manager = ControllerManager()
+
+
+class Controller:
+    def getDirection(self, character, gameObjects, maze):
+        raise NotImplementedError
+
+
+class KeyboardController(Controller):
     def __init__(self, bindings):
         self.bindings = bindings
         self.direction = None
-        self.listener = keyboard.Listener(on_release=self.getKey)
-        self.listener.start()
+        _manager.register(self)
 
-    def getKey(self, key):
-        self.direction = self.bindings.get(key, None)
+    def onPress(self, key):
+        if key in self.bindings:
+            self.direction = self.bindings[key]
 
-    def getDirection(self):
-        return self.direction
-
-
-class AiMonster:
-    directions = [(1, 0), (-1, 0), (0, -1), (0, 1)]
-
-    def __init__(self, character, view, maze, gameObjects):
-        self.character = character
-        self.view = view
-        self.maze = maze
-        self.gameObjects = gameObjects
+    def getDirection(self, character, gameObjects, maze):
+        direction = self.direction
         self.direction = None
-        self.target = None
+        return direction
+
+
+class AiController(Controller):
+
+    DIRECTIONS = [(1, 0), (-1, 0), (0, -1), (0, 1)]
+
+    def __init__(self, viewRange):
+        self.viewRange = viewRange
         self.visited = {}
+        self.target = None
 
-    def getDirection(self):
-        self.updateVisited()
-        self.visibleHuman()
+    def getDirection(self, character, gameObjects, maze):
+        self._updateVisited(character)
+        self._findVisibleTarget(character, gameObjects)
 
-        if self.target and (self.character.x, self.character.y) == (
-            self.target.x,
-            self.target.y,
-        ):
+        if self.target and (character.x, character.y) == (self.target.x, self.target.y):
             self.target = None
 
         if self.target:
-            self.pathfind((self.target.x, self.target.y))
-            return self.direction
+            goal = (self.target.x, self.target.y)
         else:
-            self.pathfind(self.leastVisited())
-            return self.direction
+            goal = self._getLeastVisitedTile(character, maze)
 
-    def visibleHuman(self):
-        for obj in self.gameObjects:
+        return self._pathfind(character, goal, maze)
+
+    def _findVisibleTarget(self, character, gameObjects):
+        for obj in gameObjects:
             if getattr(obj, "role", None) == "human":
-                if (
-                    abs(obj.x - self.character.x) + abs(obj.y - self.character.y)
-                    <= self.view
-                ):
+                distance = abs(obj.x - character.x) + abs(obj.y - character.y)
+                if distance <= self.viewRange:
                     self.target = obj
+                    return
 
-    def updateVisited(self):
-        position = (self.character.x, self.character.y)
+    def _updateVisited(self, character):
+        position = (character.x, character.y)
         self.visited[position] = self.visited.get(position, 0) + 1
 
-    def leastVisited(self):
+    def _getLeastVisitedTile(self, character, maze):
         tiles = []
-
-        for dx, dy in self.directions:
-            nx, ny = self.character.x + dx, self.character.y + dy
-
-            if self.walkable(nx, ny):
+        for dx, dy in self.DIRECTIONS:
+            nx, ny = character.x + dx, character.y + dy
+            if self._isWalkable(nx, ny, maze):
                 visits = self.visited.get((nx, ny), 0)
                 tiles.append(((nx, ny), visits))
 
         if not tiles:
-            return (self.character.x, self.character.y)
+            return (character.x, character.y)
 
         minVisits = min(tile[1] for tile in tiles)
-        minTiles = [tile[0] for tile in tiles if tile[1] == minVisits]
-        return random.choice(minTiles)
+        leastVisited = [tile[0] for tile in tiles if tile[1] == minVisits]
+        return random.choice(leastVisited)
 
-    def walkable(self, x, y):
+    def _isWalkable(self, x, y, maze):
         return (
-            0 <= x < len(self.maze.grid[0])
-            and 0 <= y < len(self.maze.grid)
-            and self.maze.grid[y][x] != 1
+            0 <= x < maze.size
+            and 0 <= y < maze.size
+            and maze.grid[y][x] == TileType.FLOOR
         )
 
-    def pathfind(self, goal):
-        start = (self.character.x, self.character.y)
+    def _pathfind(self, character, goal, maze):
+        start = (character.x, character.y)
+
+        if start == goal:
+            return None
+
         queue = deque([start])
         visited = {start}
-        origin = {start: None}
+        parent = {start: None}
 
         while queue:
-            x, y = queue.popleft()
+            current = queue.popleft()
 
-            if (x, y) == goal:
-                step = (x, y)
+            if current == goal:
+                step = current
+                while parent[step] != start:
+                    step = parent[step]
 
-                while origin[step] != start:
-                    step = origin[step]
+                dx = step[0] - start[0]
+                dy = step[1] - start[1]
+                return (dx, dy)
 
-                dx, dy = step[0] - start[0], step[1] - start[1]
-                self.direction = (dx, dy)
-                return
+            for dx, dy in self.DIRECTIONS:
+                nx, ny = current[0] + dx, current[1] + dy
+                neighbor = (nx, ny)
 
-            for dx, dy in self.directions:
-                nx, ny = x + dx, y + dy
+                if self._isWalkable(nx, ny, maze) and neighbor not in visited:
+                    visited.add(neighbor)
+                    parent[neighbor] = current
+                    queue.append(neighbor)
 
-                if self.walkable(nx, ny) and (nx, ny) not in visited:
-                    visited.add((nx, ny))
-                    origin[(nx, ny)] = (x, y)
-                    queue.append((nx, ny))
+        return None
+
+
+def cleanup():
+    _manager.cleanup()
