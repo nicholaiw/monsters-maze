@@ -1,126 +1,86 @@
-import time
-from pynput import keyboard
-from gameObject import GameObject, Character
-from controller import KeyboardController, AiController, cleanup as cleanupControllers
+import pygame
+from entity import Entity, Character, Door
+from controller import PlayerController, AiController
 from maze import Maze
 from canvas import Canvas
-from constant import Symbols, GameConfig
+from config import Settings
 
 
 class Game:
-    def __init__(
-        self,
-        mazeSize=GameConfig.MAZE_SIZE,
-        viewportSize=GameConfig.VIEWPORT_SIZE,
-        tickRate=GameConfig.TICK_RATE,
-    ):
+    def __init__(self):
+        pygame.init()
         self.running = True
-        self.maze = Maze(mazeSize)
-        self.canvas = Canvas(viewportSize)
-        self.gameObjects = []
-        self.tickRate = tickRate
+        self.clock = pygame.time.Clock()
+        self.maze = Maze(Settings.MAZE_SIZE)
+        self.canvas = Canvas(Settings.WINDOW_SIZE, Settings.VIEW_PORT_SIZE)
+        self.entities = []
+        self.player = None
 
-    def spawnGameObject(self, objectClass, symbol, **kwargs):
+    def _spawnEntity(self, entityClass, **kwargs):
         x, y = self.maze.getEmptyTile()
-        obj = objectClass(x, y, symbol=symbol, **kwargs)
-        self.gameObjects.append(obj)
+        obj = entityClass(x, y, **kwargs)
+        self.entities.append(obj)
+        return obj
 
-    def start(self):
+    def setup(self):
+        self._spawnEntity(Door)
 
-        self.spawnGameObject(GameObject, Symbols.DOOR)
-
-        self.spawnGameObject(
+        self.player = self._spawnEntity(
             Character,
-            Symbols.HUMAN,
             role="human",
-            controller=KeyboardController(
+            controller=PlayerController(
                 {
-                    keyboard.Key.left: (-1, 0),
-                    keyboard.Key.right: (1, 0),
-                    keyboard.Key.up: (0, -1),
-                    keyboard.Key.down: (0, 1),
+                    pygame.K_UP: (0, -1),
+                    pygame.K_DOWN: (0, 1),
+                    pygame.K_LEFT: (-1, 0),
+                    pygame.K_RIGHT: (1, 0),
                 }
             ),
+            moveDelay=15,
         )
 
-        self.spawnGameObject(
-            Character,
-            Symbols.MONSTER,
-            role="monster",
-            controller=AiController(GameConfig.MONSTER_VIEW_RANGE),
-        )
-
-    def run(self):
-        try:
-            self.start()
-            while self.running:
-                self._checkGameOver()
-                self.update()
-                self.draw()
-                time.sleep(self.tickRate)
-        finally:
-            self.cleanup()
-
-    def update(self):
-
-        for obj in self.gameObjects[:]:
-            obj.update(self)
-
-        self._checkKilled()
-        self._checkEscape()
-
-    def _checkKilled(self):
-        monsters = [
-            obj for obj in self.gameObjects if getattr(obj, "role", None) == "monster"
-        ]
-        humans = [
-            obj for obj in self.gameObjects if getattr(obj, "role", None) == "human"
-        ]
-
-        for monster in monsters:
-            for human in humans[:]:
-                if monster.x == human.x and monster.y == human.y:
-                    self.gameObjects.remove(human)
+        for i in range(Settings.MONSTER_AMOUNT):
+            self._spawnEntity(
+                Character,
+                role="monster",
+                controller=AiController(),
+                moveDelay=15,
+            )
 
     def _checkEscape(self):
-        door = next(
-            (obj for obj in self.gameObjects if obj.symbol == Symbols.DOOR), None
-        )
-
-        if not door:
-            return
-
-        humans = [
-            obj for obj in self.gameObjects if getattr(obj, "role", None) == "human"
-        ]
-
-        for human in humans[:]:
-            if human.x == door.x and human.y == door.y:
-                self.gameObjects.remove(human)
-
-    def _checkGameOver(self):
-        humans = [
-            obj for obj in self.gameObjects if getattr(obj, "role", None) == "human"
-        ]
-
-        if len(humans) == 0:
+        door = next((obj for obj in self.entities if isinstance(obj, Door)), None)
+        if self.player.x == door.x and self.player.y == door.y:
             self.running = False
 
+    def _checkCaught(self):
+        for entity in self.entities:
+            if isinstance(entity, Character) and entity.role == "monster":
+                if entity.x == self.player.x and entity.y == self.player.y:
+                    self.running = False
+
+    def update(self):
+        for entity in self.entities:
+            entity.update(self.maze)
+
+        self._checkEscape()
+        self._checkCaught()
+
     def draw(self):
-        self.canvas.clear()
-        players = [
-            obj
-            for obj in self.gameObjects
-            if hasattr(obj, "controller")
-            and not isinstance(obj.controller, AiController)
-        ]
+        self.canvas.draw(self.player, self.maze, self.entities)
+        pygame.display.update()
 
-        for character in players:
-            self.canvas.draw(self.maze, self.gameObjects, character)
-            print()
+    def run(self):
+        self.setup()
 
-    def cleanup(self):
-        cleanupControllers()
+        while self.running:
+            pygame.event.pump()
+
+            self.update()
+            self.draw()
+
+            self.clock.tick(Settings.TICK_RATE)
+
+        pygame.quit()
 
 
 if __name__ == "__main__":
