@@ -1,5 +1,5 @@
 import random
-from constant import TileType
+from config import TileType
 
 
 class Maze:
