@@ -73,7 +73,9 @@ class Game:
         self.setup()
 
         while self.running:
-            pygame.event.pump()
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    self.running = False
 
             self.update()
             self.draw()

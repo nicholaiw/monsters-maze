@@ -6,7 +6,7 @@ class Entity:
         self.x = x
         self.y = y
 
-    def update(self, game):
+    def update(self, maze):
         pass
 
 

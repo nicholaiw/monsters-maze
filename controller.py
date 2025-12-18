@@ -21,6 +21,7 @@ class AiController:
     def __init__(self):
         self.visited = {}
         self.directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+
     def getDirection(self, character, maze):
 
         position = (character.x, character.y)
@@ -30,7 +31,7 @@ class AiController:
         return self._pathfind(character, goal, maze)
 
     def _leastVisited(self, character, maze):
-        random.shuffle(self.directions) 
+        random.shuffle(self.directions)
 
         tiles = []
         for dx, dy in self.directions:

@@ -2,6 +2,7 @@ import pygame
 from config import Colors, TileType
 from entity import Door, Character
 
+
 class Canvas:
     def __init__(self, windowSize, viewportSize):
         self.windowSize = windowSize
@@ -13,8 +14,12 @@ class Canvas:
     def _worldToView(self, wx, wy, target, mazeSize):
         half = self.viewportSize // 2
 
-        sx = (wx - max(0, min(target.x - half, mazeSize - self.viewportSize))) * self.tileSize
-        sy = (wy - max(0, min(target.y - half, mazeSize - self.viewportSize))) * self.tileSize
+        sx = (
+            wx - max(0, min(target.x - half, mazeSize - self.viewportSize))
+        ) * self.tileSize
+        sy = (
+            wy - max(0, min(target.y - half, mazeSize - self.viewportSize))
+        ) * self.tileSize
 
         return sx, sy
 
@@ -51,6 +56,6 @@ class Canvas:
 
             if 0 <= sx < self.windowSize and 0 <= sy < self.windowSize:
                 color = self._getEntityColor(entity)
-                
+
                 if color is not None:
                     self._drawTile(sx, sy, color)
