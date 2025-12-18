@@ -16,4 +16,4 @@ class Settings:
     MAZE_SIZE = 15
     VIEW_PORT_SIZE = 5
     TICK_RATE = 60
-    MONSTER_AMOUNT = 3
+    MONSTER_AMOUNT = 1
